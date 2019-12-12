@@ -16,7 +16,7 @@ let error = {
 }
 const GEOCODE_API_KEY = process.env.GEOCODE_API_KEY;
 const WEATHER_API_KEY = process.env.DARKSKY_API_KEY;
-const EVENTBRITE_API_KEY = process.env.EVENT_API_KEY;
+const EVENTBRITE_API_KEY = process.env.EVENTFUL_API_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
 let locationSubmitted;
 
@@ -25,7 +25,7 @@ client.on('error', error => console.log(error));
 client.connect();
 
 // LOCATION PATH
-app.get('/location', checkDatabase);
+app.get('/location', getGeoData);
 
 // LOCATION CONSTRUCTOR FUNCTION
 function Geolocation(searchquery, formAddr, lat, lng) {
@@ -71,51 +71,30 @@ function Event(link, name, event_date, summary = 'none') {
   this.summary = summary
 }
 
-
-//     const SQL = 'SELECT * FROM people;';
-//     client.query(SQL).then(sqlResponse => {
-//       console.log(sqlResponse);
-//       res.send(sqlResponse.rows);
-//     });
-// when the user enters the query I want user to check to database to see if the queried info is there already
-function checkDatabase(request, response) {
+function getGeoData(request, response) {
   let query = request.query.data;
-  console.log('query :', query);
-  const sql = 'SELECT * FROM cityLocation;';
-  client.query(sql).then(sqlResponse => {
-    if (sqlResponse.rows.length < 1) {
-      createDataFromAPI(request, response, query);
+  const sql = 'SELECT * FROM cityLocation WHERE searchQuery = $1';
+  client.query(sql, [query]).then(sqlResponse => {
+    if (sqlResponse.rowCount > 0) {
+      response.send(sqlResponse.rows[0]);
     } else {
-      sqlResponse.rows.forEach(location => {
-        console.log('location :', location);
-        if (location.searchquery === query) {
-          locationSubmitted = new Geolocation(location.searchquery, location.formattedQuery, location.latitude, location.longitude);
-          response.send(locationSubmitted);
-        } else {
-          createDataFromAPI(request, response, query);
-        }
-      });
+      createDataFromAPI(request, response, query);
     }
   });
 }
+
 function createDataFromAPI(request, response, query) {
   superagent.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${GEOCODE_API_KEY}`).then(geoResponse => {
     const location = geoResponse.body.results[0].geometry.location;
     const formAddr = geoResponse.body.results[0].formatted_address;
-    const searchquery = geoResponse.body.results[0].address_components[0].long_name.toLowerCase();
-    locationSubmitted = new Geolocation(searchquery, formAddr, location.lat, location.lng);
+    locationSubmitted = new Geolocation(query, formAddr, location.lat, location.lng);
+    const sqlValu = [locationSubmitted.searchquery, locationSubmitted.formatted_query, locationSubmitted.latitude, locationSubmitted.longitude];
     const SQL = `INSERT INTO cityLocation(
-            searchQuery,
-            formattedQuery,
-            latitude,
-            longitude
-          ) VALUES(
-            $1, 
-            $2,
-            $3,
-            $4
+            searchQuery, formattedQuery, latitude, longitude
+          ) VALUES (
+            $1, $2, $3, $4
           )`;
-    client.query(SQL, [locationSubmitted.searchquery, locationSubmitted.formatted_query, locationSubmitted.latitude, locationSubmitted.longitude]);
+    client.query(SQL, sqlValu);
     response.send(locationSubmitted);
   })
 }
