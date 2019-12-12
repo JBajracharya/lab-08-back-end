@@ -1,13 +1,13 @@
 'use strict';
 //DEPENDENCIES
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 const express = require('express');
 const cors = require('cors');
-const app = express();
+const superagent = require('superagent');
 const pg = require('pg');
 require('dotenv').config();
+const app = express();
 app.use(cors());
-const superagent = require('superagent');
 
 // GLOBAL VARIABLES
 let error = {
@@ -20,22 +20,26 @@ const EVENTBRITE_API_KEY = process.env.EVENT_API_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
 let locationSubmitted;
 
+const client = new pg.Client(`${DATABASE_URL}`);
+client.on('error', error => console.log(error));
+client.connect();
+
 // LOCATION PATH
 app.get('/location', (request, res) => {
   let query = request.query.data;
-
-  superagent.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${GEOCODE_API_KEY}`).then(response => {
-    const location = response.body.results[0].geometry.location;
-    const formAddr = response.body.results[0].formatted_address;
-    const searchquery = response.body.results[0].address_components[0].long_name.toLowerCase();
-    if (query !== searchquery) {
-      response.send(error);
-      console.log(error);
-      return null;
-    }
-    locationSubmitted = new Geolocation(searchquery, formAddr, location);
-    res.send(locationSubmitted);
-  })
+  checkDatabase(query);
+//   superagent.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${GEOCODE_API_KEY}`).then(response => {
+//     const location = response.body.results[0].geometry.location;
+//     const formAddr = response.body.results[0].formatted_address;
+//     const searchquery = response.body.results[0].address_components[0].long_name.toLowerCase();
+//     if (query !== searchquery) {
+//       response.send(error);
+//       console.log(error);
+//       return null;
+//     }
+//     locationSubmitted = new Geolocation(searchquery, formAddr, location);
+//     res.send(locationSubmitted);
+//   })
 
 });
 // LOCATION CONSTRUCTOR FUNCTION
@@ -80,6 +84,23 @@ function Event(link, name, event_date, summary='none') {
   this.event_date = event_date,
   this.summary = summary
 }
+
+
+//     const SQL = 'SELECT * FROM people;';
+//     client.query(SQL).then(sqlResponse => {
+//       console.log(sqlResponse);
+//       res.send(sqlResponse.rows);
+//     });
+// when the user enters the query I want user to check to database to see if the queried info is there already
+function checkDatabase(userInput) {
+    const sql = 'SELECT * FROM cityLocation;';
+    client.query(sql).then(sqlResponse => {
+
+        console.log(sqlResponse.rows[0].searchquery);
+        
+    });
+} 
+
 
 app.listen(PORT, () => {
   console.log(`App is on PORT: ${PORT}`);
