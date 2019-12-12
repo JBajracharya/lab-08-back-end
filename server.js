@@ -1,9 +1,10 @@
 'use strict';
 //DEPENDENCIES
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const pg = require('pg');
 require('dotenv').config();
 app.use(cors());
 const superagent = require('superagent');
@@ -13,9 +14,10 @@ let error = {
   status: 500,
   responseText: 'Sorry, something went wrong',
 }
-const GEOCODE_API_KEY = process.env.geocode_api;
-const WEATHER_API_KEY = process.env.weather_api;
-const EVENTBRITE_API_KEY = process.env.event_api;
+const GEOCODE_API_KEY = process.env.GEOCODE_API_KEY;
+const WEATHER_API_KEY = process.env.DARKSKY_API_KEY;
+const EVENTBRITE_API_KEY = process.env.EVENT_API_KEY;
+const DATABASE_URL = process.env.DATABASE_URL;
 let locationSubmitted;
 
 // LOCATION PATH
