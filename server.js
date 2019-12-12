@@ -25,30 +25,16 @@ client.on('error', error => console.log(error));
 client.connect();
 
 // LOCATION PATH
-app.get('/location', (request, res) => {
-  let query = request.query.data;
-  checkDatabase(query);
-//   superagent.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${GEOCODE_API_KEY}`).then(response => {
-//     const location = response.body.results[0].geometry.location;
-//     const formAddr = response.body.results[0].formatted_address;
-//     const searchquery = response.body.results[0].address_components[0].long_name.toLowerCase();
-//     if (query !== searchquery) {
-//       response.send(error);
-//       console.log(error);
-//       return null;
-//     }
-//     locationSubmitted = new Geolocation(searchquery, formAddr, location);
-//     res.send(locationSubmitted);
-//   })
+app.get('/location', checkDatabase(request, response));
 
-});
 // LOCATION CONSTRUCTOR FUNCTION
-function Geolocation(searchquery, formAddr, location) {
+function Geolocation(searchquery, formAddr, lat, lng) {
   this.searchquery = searchquery;
   this.formatted_query = formAddr;
-  this.latitude = location['lat'];
-  this.longitude = location['lng'];
+  this.latitude = lat;
+  this.longitude = lng;
 }
+
 // WEATHER PATH
 app.get('/weather', (request, response) => {
   superagent.get(`https://api.darksky.net/forecast/${WEATHER_API_KEY}/${locationSubmitted.latitude},${locationSubmitted.longitude}`).then(res => {
@@ -92,14 +78,44 @@ function Event(link, name, event_date, summary='none') {
 //       res.send(sqlResponse.rows);
 //     });
 // when the user enters the query I want user to check to database to see if the queried info is there already
-function checkDatabase(userInput) {
+function checkDatabase(request, response) {
+    let query = request.query.data;
     const sql = 'SELECT * FROM cityLocation;';
     client.query(sql).then(sqlResponse => {
 
-        console.log(sqlResponse.rows[0].searchquery);
+    sqlResponse.rows.forEach(location => {
+        if(location.searchquery === query){
+            // callfromDatabase(request, response);
+            locationSubmitted = new Geolocation(location.searchquery, location.formattedQuery, location.latitude, location.longitude);
+            respond.send(locationSubmitted);
+          } else {
+            createDataFromAPI(request, response);
+        }
+    });
         
     });
 } 
+
+
+function createDataFromAPI(request, response) {
+    // let query = request.query.data;
+    superagent.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${GEOCODE_API_KEY}`).then(response => {
+      const location = response.body.results[0].geometry.location;
+      const formAddr = response.body.results[0].formatted_address;
+      const searchquery = response.body.results[0].address_components[0].long_name.toLowerCase();
+      if (query !== searchquery) {
+        response.send(error);
+        console.log(error);
+        return null;
+      }
+      locationSubmitted = new Geolocation(searchquery, formAddr, location.lat, location.lng);
+      
+      res.send(locationSubmitted);
+    })
+  
+  };
+
+
 
 
 app.listen(PORT, () => {
