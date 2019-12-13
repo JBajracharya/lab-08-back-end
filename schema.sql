@@ -1,20 +1,22 @@
+DROP TABLE cityLocation, weather, events;
+
 CREATE TABLE IF NOT EXISTS cityLocation(
     id SERIAL PRIMARY KEY,
     searchQuery VARCHAR(255),
     formattedQuery VARCHAR(255),
-    latitude VARCHAR(255),
-    longitude VARCHAR(255)
+    latitude NUMERIC(18,6),
+    longitude NUMERIC(18,6)
 
 );
 
 CREATE TABLE IF NOT EXISTS weather(
-    searchQuery VARCHAR(255),
+    searchID INT REFERENCES cityLocation(id),
     summary TEXT,
     timeDay DATE
 );
 
 CREATE TABLE IF NOT EXISTS events(
-    searchQuery VARCHAR(255),
+    searchID INT REFERENCES cityLocation(id),
     link VARCHAR(255),
     eventName VARCHAR(255),
     eventDate DATE,
