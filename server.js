@@ -18,14 +18,13 @@ const GEOCODE_API_KEY = process.env.GEOCODE_API_KEY;
 const WEATHER_API_KEY = process.env.DARKSKY_API_KEY;
 const EVENTBRITE_API_KEY = process.env.EVENTFUL_API_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
+let query;
 let locationSubmitted;
 
 const client = new pg.Client(`${DATABASE_URL}`);
 client.on('error', error => console.log(error));
 client.connect();
 
-// LOCATION PATH
-app.get('/location', getGeoData);
 
 // LOCATION CONSTRUCTOR FUNCTION
 function Geolocation(searchquery, formAddr, lat, lng) {
@@ -35,8 +34,21 @@ function Geolocation(searchquery, formAddr, lat, lng) {
   this.longitude = lng;
 }
 
-// WEATHER PATH
-app.get('/weather', (request, response) => {
+// Event CONSTRUCTOR FUNCTION
+function Event(link, name, event_date, summary = 'none') {
+  this.link = link,
+  this.name = name,
+  this.event_date = event_date,
+  this.summary = summary
+}
+
+// FORECAST CONSTRUCTOR FUNCTION
+function Forecast(summary, time) {
+  this.forecast = summary;
+  this.time = (new Date(time * 1000)).toDateString();
+}
+
+function getWeaterData(request, response) {
   superagent.get(`https://api.darksky.net/forecast/${WEATHER_API_KEY}/${locationSubmitted.latitude},${locationSubmitted.longitude}`).then(res => {
     const weatherArr = res.body.daily.data
     const reply = weatherArr.map(byDay => {
@@ -44,12 +56,8 @@ app.get('/weather', (request, response) => {
     })
     response.send(reply);
   })
-})
-// FORECAST CONSTRUCTOR FUNCTION
-function Forecast(summary, time) {
-  this.forecast = summary;
-  this.time = (new Date(time * 1000)).toDateString();
 }
+
 app.get('/events', (request, response) => {
   superagent.get(`http://api.eventful.com/json/events/search?where=${locationSubmitted.latitude},${locationSubmitted.longitude}&within=25&app_key=${EVENTBRITE_API_KEY}`).then(res => {
     let events = JSON.parse(res.text);
@@ -64,15 +72,9 @@ app.get('/events', (request, response) => {
   })
 })
 
-function Event(link, name, event_date, summary = 'none') {
-  this.link = link,
-  this.name = name,
-  this.event_date = event_date,
-  this.summary = summary
-}
 
 function getGeoData(request, response) {
-  let query = request.query.data;
+  query = request.query.data;
   const sql = 'SELECT * FROM cityLocation WHERE searchQuery = $1';
   client.query(sql, [query]).then(sqlResponse => {
     if (sqlResponse.rowCount > 0) {
@@ -90,14 +92,20 @@ function createDataFromAPI(request, response, query) {
     locationSubmitted = new Geolocation(query, formAddr, location.lat, location.lng);
     const sqlValu = [locationSubmitted.searchquery, locationSubmitted.formatted_query, locationSubmitted.latitude, locationSubmitted.longitude];
     const SQL = `INSERT INTO cityLocation(
-            searchQuery, formattedQuery, latitude, longitude
-          ) VALUES (
-            $1, $2, $3, $4
-          )`;
+      searchQuery, formattedQuery, latitude, longitude
+      ) VALUES (
+        $1, $2, $3, $4
+        )`;
     client.query(SQL, sqlValu);
     response.send(locationSubmitted);
   })
 }
+
+// LOCATION PATH
+app.get('/location', getGeoData);
+
+// WEATHER PATH
+app.get('/weather', getWeaterData);
 
 app.listen(PORT, () => {
   console.log(`App is on PORT: ${PORT}`);
